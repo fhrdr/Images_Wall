@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>王者荣耀名片图片展示</title>
+    <title>图片展示小工具</title>
     <style>
         body {
             margin: 0;
@@ -184,11 +184,6 @@
                 
                 const folders = await response.json();
                 
-                if (folders.length === 0) {
-                    loadingElement.textContent = '当前目录下没有找到文件夹';
-                    return;
-                }
-                
                 // 清空现有内容
                 folderList.innerHTML = '';
                 
@@ -206,7 +201,7 @@
                     const folderItem = document.createElement('div');
                     folderItem.className = 'folder-item';
                     folderItem.innerHTML = `<span class="folder-icon">📁</span> ${folder}`;
-                    folderItem.onclick = () => loadFolderImages(folder);
+                    folderItem.onclick = () => enterFolder(folder);
                     folderList.appendChild(folderItem);
                 });
                 
@@ -221,75 +216,142 @@
             }
         }
         
-        // 加载指定文件夹中的图片
-        async function loadFolderImages(folderName) {
+        // 进入文件夹
+        async function enterFolder(folderName) {
+            // 构建完整路径
+            const fullPath = currentFolder ? `${currentFolder}/${folderName}` : folderName;
+            
+            const folderList = document.getElementById('folderList');
             const gallery = document.getElementById('imageGallery');
             const loadingElement = document.getElementById('loading');
             const errorElement = document.getElementById('error');
-            const folderList = document.getElementById('folderList');
             const breadcrumb = document.getElementById('currentPath');
             
             try {
-                // 更新当前路径
-                currentFolder = folderName;
-                breadcrumb.textContent = ` > ${folderName}`;
-                
                 // 显示加载状态
                 loadingElement.style.display = 'block';
                 errorElement.style.display = 'none';
-                gallery.innerHTML = '';
                 folderList.style.display = 'none';
+                gallery.innerHTML = '';
                 
-                // 从服务器获取图片列表
-                const response = await fetch(`/api/images/${encodeURIComponent(folderName)}`);
-                if (!response.ok) {
-                    throw new Error('无法获取图片列表');
+                // 更新当前路径和面包屑
+                currentFolder = fullPath;
+                breadcrumb.textContent = ` > ${fullPath.replace(/\//g, ' > ')}`;
+                
+                // 并行获取子目录和图片
+                const [subDirsResponse, imagesResponse] = await Promise.all([
+                    fetch(`/api/subdirectories/${encodeURIComponent(fullPath)}`),
+                    fetch(`/api/images/${encodeURIComponent(fullPath)}`)
+                ]);
+                
+                if (!subDirsResponse.ok && !imagesResponse.ok) {
+                    throw new Error('无法获取目录内容');
                 }
                 
-                const imageFiles = await response.json();
-                
-                if (imageFiles.length === 0) {
-                    gallery.innerHTML = '<div class="empty-message">该文件夹下没有找到图片文件</div>';
-                    loadingElement.style.display = 'none';
-                    return;
+                // 处理子目录
+                let subDirs = [];
+                if (subDirsResponse.ok) {
+                    subDirs = await subDirsResponse.json();
                 }
                 
-                // 显示图片
-                imageFiles.forEach(filePath => {
-                    const fileName = filePath.split('/').pop();
-                    const imgContainer = document.createElement('div');
-                    imgContainer.className = 'image-item';
-                    
-                    const img = document.createElement('img');
-                    img.src = filePath;
-                    img.alt = fileName;
-                    
-                    const nameDiv = document.createElement('div');
-                    nameDiv.className = 'image-name';
-                    nameDiv.textContent = fileName;
-                    
-                    imgContainer.appendChild(img);
-                    imgContainer.appendChild(nameDiv);
-                    gallery.appendChild(imgContainer);
+                // 处理图片
+                let imageFiles = [];
+                if (imagesResponse.ok) {
+                    imageFiles = await imagesResponse.json();
+                }
+                
+                // 清空现有内容
+                folderList.innerHTML = '';
+                gallery.innerHTML = '';
+                
+                // 添加"返回上级"按钮
+                const backItem = document.createElement('div');
+                backItem.className = 'folder-item';
+                backItem.innerHTML = '<span class="folder-icon">📁</span> .. (返回上级)';
+                backItem.onclick = goBack;
+                folderList.appendChild(backItem);
+                
+                // 显示子目录
+                subDirs.forEach(dir => {
+                    const folderItem = document.createElement('div');
+                    folderItem.className = 'folder-item';
+                    folderItem.innerHTML = `<span class="folder-icon">📁</span> ${dir}`;
+                    folderItem.onclick = () => enterFolder(dir);
+                    folderList.appendChild(folderItem);
                 });
                 
-                // 隐藏加载提示
+                // 显示图片
+                if (imageFiles.length > 0) {
+                    imageFiles.forEach(filePath => {
+                        const fileName = filePath.split('/').pop();
+                        const imgContainer = document.createElement('div');
+                        imgContainer.className = 'image-item';
+                        
+                        const img = document.createElement('img');
+                        img.src = filePath;
+                        img.alt = fileName;
+                        
+                        const nameDiv = document.createElement('div');
+                        nameDiv.className = 'image-name';
+                        nameDiv.textContent = fileName;
+                        
+                        imgContainer.appendChild(img);
+                        imgContainer.appendChild(nameDiv);
+                        gallery.appendChild(imgContainer);
+                    });
+                } else if (subDirs.length === 0) {
+                    gallery.innerHTML = '<div class="empty-message">该目录下没有找到文件夹和图片</div>';
+                }
+                
+                // 显示文件夹列表
+                folderList.style.display = 'flex';
                 loadingElement.style.display = 'none';
                 
             } catch (error) {
-                console.error('加载图片时出错:', error);
+                console.error('加载目录内容时出错:', error);
                 loadingElement.style.display = 'none';
                 errorElement.style.display = 'block';
             }
         }
         
+        // 加载指定文件夹中的图片（保留此函数以兼容首页）
+        async function loadFolderImages(folderName) {
+            // 对于根目录，使用原来的逻辑
+            if (!folderName) {
+                return loadFolders();
+            }
+            
+            // 对于子目录，使用新的enterFolder函数
+            // 但我们只需要进入该目录，不需要拼接路径
+            currentFolder = folderName;
+            document.getElementById('currentPath').textContent = ` > ${folderName}`;
+            enterFolder(folderName);
+        }
+        
         // 返回上级目录
         function goBack() {
-            if (currentFolder !== '') {
+            if (currentFolder === '') {
+                // 已经在根目录
+                return;
+            }
+            
+            // 计算上级目录路径
+            const pathParts = currentFolder.split('/');
+            pathParts.pop(); // 移除最后一部分
+            const parentPath = pathParts.join('/');
+            
+            if (parentPath === '') {
+                // 返回根目录
                 currentFolder = '';
                 document.getElementById('currentPath').textContent = '';
                 loadFolders();
                 document.getElementById('imageGallery').innerHTML = '';
+            } else {
+                // 返回上级目录
+                const parentDir = pathParts[pathParts.length - 1];
+                currentFolder = parentPath;
+                document.getElementById('currentPath').textContent = ` > ${parentPath.replace(/\//g, ' > ')}`;
+                enterFolder(parentDir);
             }
         }
         

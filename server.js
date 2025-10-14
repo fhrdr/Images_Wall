@@ -26,7 +26,7 @@ const mimeTypes = {
   '.json': 'application/json; charset=utf-8'
 };
 
-// 读取目录中的图片文件
+// 读取目录中的图片文件（只获取当前目录的图片）
 function getImageFiles(dir) {
   return new Promise((resolve, reject) => {
     // 处理中文路径编码问题
@@ -48,7 +48,7 @@ function getImageFiles(dir) {
   });
 }
 
-// 读取目录中的文件夹
+// 读取目录中的文件夹（只获取直接子目录）
 function getDirectories(dir) {
   return new Promise((resolve, reject) => {
     // 处理中文路径编码问题
@@ -82,6 +82,22 @@ const server = http.createServer(async (req, res) => {
   if (pathname === './api/directories') {
     try {
       const directories = await getDirectories('.');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify(directories, null, 2));
+      return;
+    } catch (err) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end(`Error reading directory: ${err.message}`);
+      return;
+    }
+  }
+  
+  // 如果请求的是特定文件夹下的子目录列表API
+  if (pathname.startsWith('./api/subdirectories/')) {
+    try {
+      const folderName = decodeURIComponent(pathname.replace('./api/subdirectories/', ''));
+      const directories = await getDirectories(folderName);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.end(JSON.stringify(directories, null, 2));
       return;
