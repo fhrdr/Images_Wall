@@ -97,6 +97,12 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('./api/subdirectories/')) {
     try {
       const folderName = decodeURIComponent(pathname.replace('./api/subdirectories/', ''));
+      // 确保路径安全，防止目录遍历攻击
+      const safePath = path.resolve(folderName);
+      const rootPath = path.resolve('.');
+      if (!safePath.startsWith(rootPath)) {
+        throw new Error('非法路径访问');
+      }
       const directories = await getDirectories(folderName);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.end(JSON.stringify(directories, null, 2));
@@ -113,6 +119,12 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('./api/images/')) {
     try {
       const folderName = decodeURIComponent(pathname.replace('./api/images/', ''));
+      // 确保路径安全，防止目录遍历攻击
+      const safePath = path.resolve(folderName);
+      const rootPath = path.resolve('.');
+      if (!safePath.startsWith(rootPath)) {
+        throw new Error('非法路径访问');
+      }
       const imageFiles = await getImageFiles(folderName);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       // 正确处理文件路径，确保中文路径能被访问
