@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>王者荣耀名片图片展示</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #fff;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: #fff;
+            padding: 0;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #555;
+        }
+        
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        .folder-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .folder-item {
+            background: #f0f0f0;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+        
+        .folder-item:hover {
+            background: #e0e0e0;
+        }
+        
+        .folder-icon {
+            margin-right: 5px;
+        }
+        
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+            align-items: center;
+            justify-items: center;
+        }
+        
+        .image-item {
+            width: 100%;
+            height: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .image-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        }
+        
+        .image-name {
+            display: none;
+        }
+        
+        #loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+        }
+        
+        #error {
+            color: red;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .btn-refresh {
+            display: none;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #777;
+        }
+        
+        /* 自定义滚动条样式 - 浮动且不占据空间 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+        
+        ::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+        
+        /* Firefox scrollbar */
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>王者荣耀名片图片展示</h1>
+        <div class="breadcrumb" id="breadcrumb">
+            当前位置: <a id="homeLink">首页</a> <span id="currentPath"></span>
+        </div>
+        <div id="loading">正在加载内容...</div>
+        <div id="error">无法加载内容，请确保通过本地服务器运行此页面</div>
+        <div id="folderList" class="folder-list" style="display:none;">
+            <!-- 文件夹将通过JavaScript动态加载 -->
+        </div>
+        <div class="image-gallery" id="imageGallery">
+            <!-- 图片将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script>
+        // 当前路径状态
+        let currentFolder = '';
+        
+        // 获取文件夹列表并显示
+        async function loadFolders() {
+            const folderList = document.getElementById('folderList');
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error');
+            
+            try {
+                // 显示加载状态
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                folderList.style.display = 'none';
+                
+                // 从服务器获取文件夹列表
+                const response = await fetch('/api/directories');
+                if (!response.ok) {
+                    throw new Error('无法获取文件夹列表');
+                }
+                
+                const folders = await response.json();
+                
+                if (folders.length === 0) {
+                    loadingElement.textContent = '当前目录下没有找到文件夹';
+                    return;
+                }
+                
+                // 清空现有内容
+                folderList.innerHTML = '';
+                
+                // 添加"返回上级"按钮（如果不在根目录）
+                if (currentFolder !== '') {
+                    const backItem = document.createElement('div');
+                    backItem.className = 'folder-item';
+                    backItem.innerHTML = '<span class="folder-icon">📁</span> .. (返回上级)';
+                    backItem.onclick = goBack;
+                    folderList.appendChild(backItem);
+                }
+                
+                // 显示文件夹
+                folders.forEach(folder => {
+                    const folderItem = document.createElement('div');
+                    folderItem.className = 'folder-item';
+                    folderItem.innerHTML = `<span class="folder-icon">📁</span> ${folder}`;
+                    folderItem.onclick = () => loadFolderImages(folder);
+                    folderList.appendChild(folderItem);
+                });
+                
+                // 显示文件夹列表
+                folderList.style.display = 'flex';
+                loadingElement.style.display = 'none';
+                
+            } catch (error) {
+                console.error('加载文件夹时出错:', error);
+                loadingElement.style.display = 'none';
+                errorElement.style.display = 'block';
+            }
+        }
+        
+        // 加载指定文件夹中的图片
+        async function loadFolderImages(folderName) {
+            const gallery = document.getElementById('imageGallery');
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error');
+            const folderList = document.getElementById('folderList');
+            const breadcrumb = document.getElementById('currentPath');
+            
+            try {
+                // 更新当前路径
+                currentFolder = folderName;
+                breadcrumb.textContent = ` > ${folderName}`;
+                
+                // 显示加载状态
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                gallery.innerHTML = '';
+                folderList.style.display = 'none';
+                
+                // 从服务器获取图片列表
+                const response = await fetch(`/api/images/${encodeURIComponent(folderName)}`);
+                if (!response.ok) {
+                    throw new Error('无法获取图片列表');
+                }
+                
+                const imageFiles = await response.json();
+                
+                if (imageFiles.length === 0) {
+                    gallery.innerHTML = '<div class="empty-message">该文件夹下没有找到图片文件</div>';
+                    loadingElement.style.display = 'none';
+                    return;
+                }
+                
+                // 显示图片
+                imageFiles.forEach(filePath => {
+                    const fileName = filePath.split('/').pop();
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'image-item';
+                    
+                    const img = document.createElement('img');
+                    img.src = filePath;
+                    img.alt = fileName;
+                    
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'image-name';
+                    nameDiv.textContent = fileName;
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(nameDiv);
+                    gallery.appendChild(imgContainer);
+                });
+                
+                // 隐藏加载提示
+                loadingElement.style.display = 'none';
+                
+            } catch (error) {
+                console.error('加载图片时出错:', error);
+                loadingElement.style.display = 'none';
+                errorElement.style.display = 'block';
+            }
+        }
+        
+        // 返回上级目录
+        function goBack() {
+            if (currentFolder !== '') {
+                currentFolder = '';
+                document.getElementById('currentPath').textContent = '';
+                loadFolders();
+                document.getElementById('imageGallery').innerHTML = '';
+            }
+        }
+        
+        // 返回首页
+        function goHome() {
+            currentFolder = '';
+            document.getElementById('currentPath').textContent = '';
+            loadFolders();
+            document.getElementById('imageGallery').innerHTML = '';
+        }
+        
+        // 页面加载完成后执行
+        window.addEventListener('DOMContentLoaded', () => {
+            // 绑定首页链接事件
+            document.getElementById('homeLink').addEventListener('click', goHome);
+            
+            // 初始加载文件夹列表
+            loadFolders();
+        });
+    </script>
+</body>
+</html>
