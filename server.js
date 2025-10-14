@@ -4,9 +4,10 @@ const path = require('path');
 const url = require('url');
 
 // 设置控制台编码为UTF-8解决中文乱码问题
-if (process.platform === "win32") {
-  require('child_process').exec('chcp 65001');
-}
+// 注释掉原来的实现以避免控制台窗口异常关闭
+// if (process.platform === "win32") {
+//   require('child_process').exec('chcp 65001');
+// }
 
 // 支持的图片格式
 const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
@@ -161,6 +162,5 @@ const server = http.createServer(async (req, res) => {
 
 const port = 3000;
 server.listen(port, () => {
-  console.log(`服务器运行在 http://localhost:${port}/`);
-  console.log(`请将图片文件放在当前目录下，然后访问该地址查看图片展示`);
+  console.log(`服务器运行在：http://localhost:${port}/`);
 });
