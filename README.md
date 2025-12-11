@@ -55,6 +55,10 @@ Images_Wall/
 http://localhost:3000
 ```
 
+##  界面截图
+
+![image-20251211102040953](./README.assets/image-20251211102040953.png)
+
 ## 使用说明
 
 1. **首页浏览**：
