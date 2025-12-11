@@ -91,23 +91,6 @@ http://localhost:3000
 - **前端**：HTML5, CSS3, JavaScript (ES6+)
 - **其他**：文件系统 API
 
-## 开发与贡献
-
-1. 克隆项目：
-   ```bash
-   git clone <repository-url>
-   ```
-
-2. 进入项目目录：
-   ```bash
-   cd Images_Wall
-   ```
-
-3. 启动服务器：
-   ```bash
-   node server.js
-   ```
-
 ## 许可证
 
 本项目采用 MIT 许可证，详情请见 [LICENSE](LICENSE) 文件。
